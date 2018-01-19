@@ -161,3 +161,34 @@ def recurrent_gaussian(
   value = tf.check_numerics(value, 'value')
   policy = CustomKLDiagNormal(mean, std)
   return agents.tools.AttrDict(policy=policy, value=value, state=state)
+
+
+def dynamics_rnn(config, observ, action, reward, length, state=None):
+  """Simple GRU dynamics model.
+
+  Args:
+    config: Configuration object.
+    observ: Sequences of observations.
+    action: Sequences of actions.
+    reward: Sequences of rewards.
+    length: Batch of sequence lengths.
+    state: Unused batch of initial states.
+
+  Returns:
+    Attribute dictionary containing the next observation, action, reward, and
+    new state.
+  """
+  cell = tf.contrib.rnn.GRUBlockCell(100)
+  sequence = tf.concat([
+      tf.reshape(observ, observ.shape.as_list()[:2] + [-1]),
+      action, reward[..., None]], 2)
+  output, state = tf.nn.dynamic_rnn(
+      cell, sequence, length, state, dtype=tf.float32)
+  observ = tf.reshape(tf.layers.dense(output, np.prod(observ.shape.as_list()[2:])), observ.shape)
+  action = tf.reshape(tf.layers.dense(output, np.prod(action.shape.as_list()[2:])), action.shape)
+  reward = tf.reshape(tf.layers.dense(output, np.prod(reward.shape.as_list()[2:])), reward.shape)
+  observ = tf.check_numerics(observ, 'observ')
+  action = tf.check_numerics(action, 'action')
+  reward = tf.check_numerics(reward, 'reward')
+  return agents.tools.AttrDict(
+      observ=observ, action=action, reward=reward, state=state)

@@ -128,3 +128,31 @@ def humanoid():
   steps = 5e7  # 50M
   update_every = 60
   return locals()
+
+
+def dyna():
+  """Configuration for MuJoCo's half cheetah task."""
+  env = 'HalfCheetah-v1'
+  max_length = 1000
+  steps = 1e7  # 10M
+  discount = 0.99
+  # General
+  algorithm = algorithms.Dyna
+  num_agents = 30
+  eval_episodes = 30
+  simulated_epochs = 2
+  use_gpu = False
+  # Inner agent
+  inner_agent = algorithms.PPO
+  inner_agent_config = default()
+  inner_agent_config['max_length'] = max_length
+  # Network
+  model = networks.dynamics_rnn
+  weight_summaries = dict(
+      all=r'.*', policy=r'.*/policy/.*', value=r'.*/value/.*')
+  # Optimization
+  update_every = 30
+  update_epochs = 25
+  optimizer = tf.train.AdamOptimizer
+  learning_rate = 1e-4
+  return locals()

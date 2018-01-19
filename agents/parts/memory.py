@@ -39,6 +39,7 @@ class EpisodeMemory(object):
       max_length: Allocated sequence length for the episodes.
       scope: Variable scope to use for internal variables.
     """
+    assert capacity and max_length
     self._capacity = capacity
     self._max_length = max_length
     with tf.variable_scope(scope) as var_scope:
