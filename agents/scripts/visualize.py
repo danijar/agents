@@ -106,6 +106,8 @@ def visualize(
     env_processes: Whether to step environments in separate processes.
   """
   config = utility.load_config(logdir)
+  tf.reset_default_graph()
+  tf.get_variable_scope().set_use_resource(True)
   with tf.device('/cpu:0'):
     batch_env = utility.define_batch_env(
         lambda: _create_environment(config, outdir),

@@ -23,6 +23,7 @@ from __future__ import division
 from __future__ import print_function
 
 import functools
+import uuid
 
 import tensorflow as tf
 
@@ -61,22 +62,30 @@ class PPO(object):
     # Initialize the optimizer and penalty.
     with tf.device('/gpu:0' if self._use_gpu else '/cpu:0'):
       self._optimizer = self._config.optimizer(self._config.learning_rate)
-    self._penalty = tf.Variable(
-        self._config.kl_init_penalty, False, dtype=tf.float32)
+    self._penalty = tf.get_variable(
+        'penalty', (), tf.float32,
+        tf.constant_initializer(self._config.kl_init_penalty), trainable=False)
     # If the policy is stateful, allocate space to store its state.
     with tf.variable_scope('ppo_temporary'):
       with tf.device('/gpu:0'):
         if state is None:
           self._last_state = None
         else:
-          var_like = lambda x: tf.Variable(lambda: tf.zeros_like(x), False)
+          var_like = lambda tensor: tf.get_variable(
+              str(uuid.uuid4()), tensor.shape.as_list(), tensor.dtype,
+              tf.constant_initializer(0), trainable=False)
           self._last_state = tools.nested.map(var_like, state)
     # Remember the action and policy parameters to write into the memory.
     with tf.variable_scope('ppo_temporary'):
-      self._last_action = tf.Variable(
-          tf.zeros_like(self._batch_env.action), False, name='last_action')
+      self._last_action = tf.get_variable(
+          'last_action', self._batch_env.action.shape.as_list(),
+          self._batch_env.action.dtype, tf.constant_initializer(0),
+          trainable=False)
       self._last_policy = tools.nested.map(
-          lambda x: tf.Variable(tf.zeros_like(x[:, 0], False)), policy_params)
+          lambda tensor: tf.get_variable(
+              str(uuid.uuid4()), tensor[:, 0].shape.as_list(), tensor.dtype,
+              tf.constant_initializer(0), trainable=False),
+          policy_params)
 
   def begin_episode(self, agent_indices):
     """Reset the recurrent states and stored episode.
@@ -272,7 +281,9 @@ class PPO(object):
           template, len(self._batch_env), self._config.max_length, 'episodes')
     self._finished_episodes = parts.EpisodeMemory(
         template, self._config.update_every, self._config.max_length, 'memory')
-    self._num_finished_episodes = tf.Variable(0, False)
+    self._num_finished_episodes = tf.get_variable(
+        'num_finished', (), tf.int32,
+        tf.constant_initializer(0), trainable=False)
 
   def _define_end_episode(self, agent_indices):
     """Implement the branch of end_episode() entered during training."""

@@ -79,8 +79,11 @@ def simulate(batch_env, algo, log=True, reset=False):
     with tf.control_dependencies([add_score, inc_length]):
       agent_indices = tf.range(len(batch_env))
       experience_summary = algo.experience(
-          agent_indices, prevob, batch_env.action, batch_env.reward,
-          batch_env.done, batch_env.observ)
+          agent_indices, prevob,
+          batch_env.action,
+          batch_env.reward,
+          batch_env.done,
+          batch_env.observ)
     return tf.summary.merge([step_summary, experience_summary])
 
   def _define_end_episode(agent_indices):
@@ -119,12 +122,14 @@ def simulate(batch_env, algo, log=True, reset=False):
     log = tf.convert_to_tensor(log)
     reset = tf.convert_to_tensor(reset)
     with tf.variable_scope('simulate_temporary'):
-      score = tf.Variable(
-          lambda: tf.zeros(len(batch_env), dtype=tf.float32),
-          trainable=False, name='score')
-      length = tf.Variable(
-          lambda: tf.zeros(len(batch_env), dtype=tf.int32),
-          trainable=False, name='length')
+      score = tf.get_variable(
+          'score', (len(batch_env),), tf.float32,
+          tf.constant_initializer(0),
+          trainable=False)
+      length = tf.get_variable(
+          'length', (len(batch_env),), tf.int32,
+          tf.constant_initializer(0),
+          trainable=False)
     mean_score = streaming_mean.StreamingMean((), tf.float32)
     mean_length = streaming_mean.StreamingMean((), tf.float32)
     agent_indices = tf.cond(
@@ -145,5 +150,6 @@ def simulate(batch_env, algo, log=True, reset=False):
       summary = tf.summary.merge([
           _define_summaries(), begin_episode, step, end_episode])
     with tf.control_dependencies([summary]):
-      done, score = tf.identity(batch_env.done), tf.identity(score)
+      score = score + 0.0
+      done = batch_env.done
     return done, score, summary

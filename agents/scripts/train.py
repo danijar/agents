@@ -111,6 +111,7 @@ def train(config, env_processes):
     Evaluation scores.
   """
   tf.reset_default_graph()
+  tf.get_variable_scope().set_use_resource(True)
   if config.update_every % config.num_agents:
     tf.logging.warn('Number of agents should divide episodes per update.')
   with tf.device('/cpu:0'):

@@ -43,18 +43,20 @@ class InGraphBatchEnv(object):
     action_shape = self._parse_shape(self._batch_env.action_space)
     action_dtype = self._parse_dtype(self._batch_env.action_space)
     with tf.variable_scope('env_temporary'):
-      self._observ = tf.Variable(
-          lambda: tf.zeros(batch_dims + observ_shape, observ_dtype),
-          name='observ', trainable=False)
-      self._action = tf.Variable(
-          lambda: tf.zeros(batch_dims + action_shape, action_dtype),
-          name='action', trainable=False)
-      self._reward = tf.Variable(
-          lambda: tf.zeros(batch_dims, tf.float32),
-          name='reward', trainable=False)
-      self._done = tf.Variable(
-          lambda: tf.cast(tf.ones(batch_dims), tf.bool),
-          name='done', trainable=False)
+      self._observ = tf.get_variable(
+          'observ', batch_dims + observ_shape, observ_dtype,
+          tf.constant_initializer(0), trainable=False)
+      self._action = tf.get_variable(
+          'action', batch_dims + action_shape, action_dtype,
+          tf.constant_initializer(0), trainable=False)
+      self._reward = tf.get_variable(
+          'reward', batch_dims, tf.float32,
+          tf.constant_initializer(0), trainable=False)
+      # TODO(danijar): This variable should be boolean, but tf.scatter_update()
+      # does not support boolean resource variables yet.
+      self._done = tf.get_variable(
+          'done', batch_dims, tf.int32,
+          tf.constant_initializer(True), trainable=False)
 
   def __getattr__(self, name):
     """Forward unimplemented attributes to one of the original environments.
@@ -99,7 +101,7 @@ class InGraphBatchEnv(object):
           self._observ.assign(observ),
           self._action.assign(action),
           self._reward.assign(reward),
-          self._done.assign(done))
+          self._done.assign(tf.to_int32(done)))
 
   def reset(self, indices=None):
     """Reset the batch of environments.
@@ -117,32 +119,32 @@ class InGraphBatchEnv(object):
         self._batch_env.reset, [indices], observ_dtype, name='reset')
     observ = tf.check_numerics(observ, 'observ')
     reward = tf.zeros_like(indices, tf.float32)
-    done = tf.zeros_like(indices, tf.bool)
+    done = tf.zeros_like(indices, tf.int32)
     with tf.control_dependencies([
         tf.scatter_update(self._observ, indices, observ),
         tf.scatter_update(self._reward, indices, reward),
-        tf.scatter_update(self._done, indices, done)]):
+        tf.scatter_update(self._done, indices, tf.to_int32(done))]):
       return tf.identity(observ)
 
   @property
   def observ(self):
     """Access the variable holding the current observation."""
-    return self._observ
+    return self._observ + 0
 
   @property
   def action(self):
     """Access the variable holding the last received action."""
-    return self._action
+    return self._action + 0
 
   @property
   def reward(self):
     """Access the variable holding the current reward."""
-    return self._reward
+    return self._reward + 0
 
   @property
   def done(self):
     """Access the variable indicating whether the episode is done."""
-    return self._done
+    return tf.cast(self._done, tf.bool)
 
   def close(self):
     """Send close messages to the external process and join them."""

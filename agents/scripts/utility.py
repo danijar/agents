@@ -40,7 +40,8 @@ def define_simulation_graph(batch_env, algo_cls, config):
     Object providing graph elements via attributes.
   """
   # pylint: disable=unused-variable
-  step = tf.Variable(0, False, dtype=tf.int32, name='global_step')
+  step = tf.get_variable(
+      'global_step', (), tf.int32, tf.constant_initializer(0), trainable=False)
   is_training = tf.placeholder(tf.bool, name='is_training')
   should_log = tf.placeholder(tf.bool, name='should_log')
   do_report = tf.placeholder(tf.bool, name='do_report')
